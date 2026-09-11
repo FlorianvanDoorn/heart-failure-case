@@ -1,0 +1,17 @@
+# Lokale Python-omgevingen en tijdelijke bestanden
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.env
+.env.*
+
+# Data en gegenereerde resultaten horen niet in de coderepository
+data/
+outputs/
+*.csv
+*.xlsx
+*.pdf
+*.docx
