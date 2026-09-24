@@ -44,3 +44,13 @@ ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), [4, 5, 11])], 
 X = np.array(ct.fit_transform(X)) # Transformeer de input (X) met de ColumnTransformer en converteer het naar een numpy-array
 
 print(X) # Toon de input (features) na het encoderen van categorische variabelen
+
+# Sla de bewerkte input en de uitkomst samen op voor controle.
+# OneHotEncoder verandert het aantal en de volgorde van de kolommen.
+# Vraag daarom de nieuwe kolomnamen op bij de ColumnTransformer.
+kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())
+bewerkte_data = pd.DataFrame(X, columns=kolomnamen, index=dataset.index)
+bewerkte_data['HeartDisease'] = y
+
+# Voer het script uit vanuit de map code. De bewerkte CSV wordt overschreven.
+bewerkte_data.to_csv('../data/Heart_failure_bewerkt.csv', index=False)
