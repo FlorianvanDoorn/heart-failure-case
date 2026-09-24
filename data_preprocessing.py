@@ -35,4 +35,12 @@ imputer = SimpleImputer(missing_values=0, strategy='mean') # Vervang nulwaarden 
 imputer.fit(X[:, 7:8]) # Pas de SimpleImputer alleen toe op kolom 7
 X[:, 7:8] = imputer.transform(X[:, 7:8]) # Vervang de nulwaarden door de gemiddelde waarde
 
-print(X[:, 7:8]) # Toon de input (features) na het invullen van ontbrekende waarden
+# print(X[:, 7:8]) # Toon de input (features) na het invullen van ontbrekende waarden
+
+# Encodeer categorische variabelen met OneHotEncoder
+from sklearn.compose import ColumnTransformer # Importeer ColumnTransformer uit sklearn
+from sklearn.preprocessing import OneHotEncoder # Importeer OneHotEncoder uit sklearn
+ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), [4, 5, 11])], remainder='passthrough') # Pas OneHotEncoder toe op kolommen 4, 5 en 11 (categorische variabelen) en laat de rest van de kolommen ongemoeid
+X = np.array(ct.fit_transform(X)) # Transformeer de input (X) met de ColumnTransformer en converteer het naar een numpy-array
+
+print(X) # Toon de input (features) na het encoderen van categorische variabelen
