@@ -2,6 +2,19 @@
 
 Eén Git-repository voor alle opdrachten van de Heart Failure-case.
 
+## Git gebruiken
+
+De repository staat in deze map (`heart-failure/code`), niet in de bovenliggende studiemap. Open deze map in VS Code om alleen de codewijzigingen te zien. Vanuit de studiemap kun je ook gericht werken:
+
+```powershell
+git -C heart-failure/code status
+git -C heart-failure/code add .
+```
+
+Werk je al vanuit deze codemap, dan volstaan `git status` en `git add .`. Python-omgevingen, caches, lokale reservekopieën en gegenereerde data worden uitgesloten via `.gitignore`. Lesmateriaal, datasets, portfolio en tijdelijke bestanden buiten deze map vallen buiten de repository. Een al eerder bijgehouden bestand blijft gevolgd totdat het expliciet uit Git wordt gehaald.
+
+## Code uitvoeren
+
 - `opdracht1/procesmodel.py`: uitvoerbaar procesmodel van het huidige behandelproces.
 - `Heart_failure_start.ipynb`: bestaand startnotebook voor latere analyse en ML-opdrachten.
 - Voeg code voor volgende opdrachten toe in aparte mappen wanneer die nodig is. Gedeelde functies kunnen later in `src/` komen.

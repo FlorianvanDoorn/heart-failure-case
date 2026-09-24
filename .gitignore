@@ -5,8 +5,24 @@ __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.cache/
 .env
 .env.*
+!.env.example
+
+# Lokale reservekopieën en gegenereerde bestanden
+backups/
+tmp/
+node_modules/
+*.log
+*.tmp
+*.bak
+*.joblib
+*.pkl
 
 # Data en gegenereerde resultaten horen niet in de coderepository
 data/

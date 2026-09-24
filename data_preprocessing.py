@@ -21,6 +21,20 @@ if bestand is None:
 # Lees de CSV-data in
 dataset = pd.read_csv(bestand)
 
+# Verwijder rijen met ontbrekende waarden
+aantal_voor = len(dataset) # Tel het aantal rijen in de dataset voordat we rijen verwijderen
+dataset = dataset.dropna(subset=["Age"]) # Verwijder rijen waar de Age-kolom ontbreekt 
+print("Verwijderde rijen:", aantal_voor - len(dataset)) # Print het aantal verwijderde rijen
+
+# Verwijder rijen waarin de bloeddruk 0 is
+aantal_voor = len(dataset)
+dataset = dataset[dataset["RestingBP"] > 0]
+print("Verwijderde rijen met bloeddruk gelijk aan of lager dan 0:", aantal_voor - len(dataset))
+
+aantal_voor = len(dataset)
+dataset = dataset[dataset["Sex"].isin(["M", "F"])] # Behoud rijen waarin Sex "M" of "F" is
+print("Verwijderde rijen met ongeldige geslachtswaarde:", aantal_voor - len(dataset))
+
 # Splits de dataset in input (X) en output (y)
 X = dataset.iloc[:, :-1].values # Alle kolommen behalve de laatste (HeartDisease) Dit is de input (features)
 y = dataset.iloc[:, -1].values # Alleen de laatste kolom (HeartDisease) Dit is de output (target)
@@ -52,5 +66,5 @@ kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())
 bewerkte_data = pd.DataFrame(X, columns=kolomnamen, index=dataset.index)
 bewerkte_data['HeartDisease'] = y
 
-# Voer het script uit vanuit de map code. De bewerkte CSV wordt overschreven.
-bewerkte_data.to_csv('../data/Heart_failure_bewerkt.csv', index=False)
+# Sla op naast het bronbestand. De bewerkte CSV wordt overschreven.
+bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
