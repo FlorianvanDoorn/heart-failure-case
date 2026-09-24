@@ -68,3 +68,6 @@ bewerkte_data['HeartDisease'] = y
 
 # Sla op naast het bronbestand. De bewerkte CSV wordt overschreven.
 bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
+
+#test
+
