@@ -26,7 +26,7 @@ aantal_voor = len(dataset) # Tel het aantal rijen in de dataset voordat we rijen
 dataset = dataset.dropna(subset=["Age"]) # Verwijder rijen waar de Age-kolom ontbreekt 
 print("Verwijderde rijen:", aantal_voor - len(dataset)) # Print het aantal verwijderde rijen
 
-# Verwijder rijen waarin de bloeddruk 0 is
+# Verwijder rijen waarin de bloeddruk 0 of lager is, omdat dit niet realistisch is
 aantal_voor = len(dataset)
 dataset = dataset[dataset["RestingBP"] > 0]
 print("Verwijderde rijen met bloeddruk gelijk aan of lager dan 0:", aantal_voor - len(dataset))
@@ -61,5 +61,13 @@ print(X) # Toon de input (features) na het encoderen van categorische variabelen
 
 # Sla de bewerkte input en de uitkomst samen op voor controle.
 # OneHotEncoder verandert het aantal en de volgorde van de kolommen.
+# Vraag daarom de nieuwe kolomnamen op bij de ColumnTransformer.
+kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())
+bewerkte_data = pd.DataFrame(X, columns=kolomnamen, index=dataset.index)
+bewerkte_data['HeartDisease'] = y
 
-# beide uploaden Bas
+# Sla op naast het bronbestand. De bewerkte CSV wordt overschreven.
+bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
+
+#test
+#test beide uploaden Florian
