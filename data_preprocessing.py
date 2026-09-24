@@ -45,9 +45,9 @@ print(y) # Toon de output (target)
 
 # Imputeer nulwaarden in kolom 7 met de gemiddelde waarde van die kolom
 from sklearn.impute import SimpleImputer # Importeer SimpleImputer uit sklearn
-imputer = SimpleImputer(missing_values=0, strategy='mean') # Vervang nulwaarden door het kolomgemiddelde
+imputer = SimpleImputer(missing_values=0, strategy='median') # Vervang nulwaarden door het kolommedian
 imputer.fit(X[:, 7:8]) # Pas de SimpleImputer alleen toe op kolom 7
-X[:, 7:8] = imputer.transform(X[:, 7:8]) # Vervang de nulwaarden door de gemiddelde waarde
+X[:, 7:8] = imputer.transform(X[:, 7:8]) # Vervang de nulwaarden met de mediaan
 
 # print(X[:, 7:8]) # Toon de input (features) na het invullen van ontbrekende waarden
 
