@@ -70,4 +70,4 @@ bewerkte_data['HeartDisease'] = y
 bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
 
 #test
-
+#test beide uploaden Florian
