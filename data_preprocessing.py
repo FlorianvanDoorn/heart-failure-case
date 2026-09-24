@@ -61,13 +61,5 @@ print(X) # Toon de input (features) na het encoderen van categorische variabelen
 
 # Sla de bewerkte input en de uitkomst samen op voor controle.
 # OneHotEncoder verandert het aantal en de volgorde van de kolommen.
-# Vraag daarom de nieuwe kolomnamen op bij de ColumnTransformer.
-kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())
-bewerkte_data = pd.DataFrame(X, columns=kolomnamen, index=dataset.index)
-bewerkte_data['HeartDisease'] = y
 
-# Sla op naast het bronbestand. De bewerkte CSV wordt overschreven.
-bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
-
-#test
-#test beide uploaden Florian
+# beide uploaden Bas
