@@ -31,7 +31,7 @@ print("Aantal rijen met HeartDisease = 'yes' na vervanging:", dataset[dataset["H
 # Verwijder rijen met ontbrekende waarden
 aantal_voor = len(dataset) # Tel het aantal rijen in de dataset voordat we rijen verwijderen
 dataset = dataset.dropna(subset=["Age"]) # Verwijder rijen waar de Age-kolom ontbreekt 
-print("Verwijderde rijen:", aantal_voor - len(dataset)) # Print het aantal verwijderde rijen
+print("Verwijderde rijen met ontbrekende waarden in Age:", aantal_voor - len(dataset)) # Print het aantal verwijderde rijen
 
 # Verwijder rijen waarin de bloeddruk 0 is
 aantal_voor = len(dataset)
@@ -90,10 +90,6 @@ test_data = pd.concat([X_test, y_test], axis=1)
 train_data.to_csv(bestand.with_name('Heart_failure_train.csv'), index=False)
 test_data.to_csv(bestand.with_name('Heart_failure_test.csv'), index=False)
 
-# Vernieuw ook het volledige controlebestand, in de oorspronkelijke rijvolgorde.
-# Dit gecombineerde bestand is geen nieuwe trainingsset: houd de aparte testset apart.
-bewerkte_data = pd.concat([train_data, test_data]).sort_index()
-bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
 
 # Toon de setgroottes en klasseverdeling om de splitsing te controleren.
 print(f'Trainingsset: {len(X_train)} rijen; testset: {len(X_test)} rijen.')
