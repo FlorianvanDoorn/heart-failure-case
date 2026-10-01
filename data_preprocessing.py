@@ -10,6 +10,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import StratifiedKFold, cross_validate
+# Pas een instelbare beslisdrempel toe bij cross-validatie en eindbeoordeling.
+from sklearn.model_selection import FixedThresholdClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.metrics import classification_report, confusion_matrix
@@ -19,7 +21,13 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 # Laat None staan tijdens modelontwikkeling. Kies pas na cross-validatie
 # "Logistische regressie" of "Lineaire SVM" voor de eindbeoordeling.
-gekozen_naam = None
+gekozen_naam = "Logistische regressie"  # of "Lineaire SVM" of None
+
+# Onderzoek lagere drempels; deze voorbeeldwaarden zijn nog niet geoptimaliseerd.
+# Logistische regressie gebruikt een kans (standaard 0.50).
+drempel_logistisch = 0.43
+# De SVM gebruikt een beslisscore, geen kans (standaard 0.00).
+drempel_svm = -0.30
 
 # Zoek eerst relatief aan dit script, onafhankelijk van de huidige werkmap.
 mogelijke_paden = [
@@ -102,6 +110,26 @@ pipelines = {
         ("model", LinearSVC(max_iter=10000, random_state=42)),
     ]),
 }
+
+# Gebruik de kans op HeartDisease = 1 voor de logistische drempelbeslissing.
+pipelines["Logistische regressie"] = FixedThresholdClassifier(
+    estimator=pipelines["Logistische regressie"],
+    threshold=drempel_logistisch,
+    response_method="predict_proba",
+    pos_label=1,
+)
+
+# Gebruik de SVM-beslisscore voor de drempelbeslissing, ook binnen elke fold.
+pipelines["Lineaire SVM"] = FixedThresholdClassifier(
+    estimator=pipelines["Lineaire SVM"],
+    threshold=drempel_svm,
+    response_method="decision_function",
+    pos_label=1,
+)
+
+# Toon de drempels zodat de resultaten aan de instellingen te koppelen zijn.
+print(f"\nKansdrempel logistische regressie: {drempel_logistisch:.2f}")
+print(f"Scoredrempel lineaire SVM:         {drempel_svm:.2f}")
 
 # Controleer een eventuele modelkeuze voordat de berekeningen starten.
 if gekozen_naam is not None and gekozen_naam not in pipelines:
