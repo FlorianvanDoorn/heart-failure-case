@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 mogelijke_paden = [
+    Path(__file__).resolve().parent / 'Heart faillure prediction data.csv',
     Path('../data/Heart faillure prediction data.csv'),
     Path('heart-failure/data/Heart faillure prediction data.csv'),
     Path('data/Heart faillure prediction data.csv'),
@@ -20,6 +21,7 @@ if bestand is None:
 
 # Lees de CSV-data in
 dataset = pd.read_csv(bestand)
+dataset = dataset.drop(columns=['CaseNumber', 'LastName', 'PostCode'])
 
 # Verwijder rijen met ontbrekende waarden
 aantal_voor = len(dataset) # Tel het aantal rijen in de dataset voordat we rijen verwijderen
@@ -36,7 +38,7 @@ dataset = dataset[dataset["Sex"].isin(["M", "F"])] # Behoud rijen waarin Sex "M"
 print("Verwijderde rijen met ongeldige geslachtswaarde:", aantal_voor - len(dataset))
 
 # Splits de dataset in input (X) en output (y)
-X = dataset.iloc[:, :-1].values # Alle kolommen behalve de laatste (HeartDisease) Dit is de input (features)
+X = dataset.iloc[:, :-1].copy() # Alle kolommen behalve de laatste (HeartDisease) Dit is de input (features)
 y = dataset.iloc[:, -1].values # Alleen de laatste kolom (HeartDisease) Dit is de output (target)
 
 # Toon de input en output
@@ -45,16 +47,16 @@ print(y) # Toon de output (target)
 
 # Imputeer nulwaarden in kolom 7 met de gemiddelde waarde van die kolom
 from sklearn.impute import SimpleImputer # Importeer SimpleImputer uit sklearn
-imputer = SimpleImputer(missing_values=0, strategy='mean') # Vervang nulwaarden door het kolomgemiddelde
-imputer.fit(X[:, 7:8]) # Pas de SimpleImputer alleen toe op kolom 7
-X[:, 7:8] = imputer.transform(X[:, 7:8]) # Vervang de nulwaarden door de gemiddelde waarde
+imputer = SimpleImputer(missing_values=0, strategy='median') # Vervang nulwaarden door het kolommediaan
+X[['Cholesterol']] = imputer.fit_transform(X[['Cholesterol']]) # Vervang nullen in Cholesterol door de mediaan
 
-# print(X[:, 7:8]) # Toon de input (features) na het invullen van ontbrekende waarden
+
 
 # Encodeer categorische variabelen met OneHotEncoder
 from sklearn.compose import ColumnTransformer # Importeer ColumnTransformer uit sklearn
 from sklearn.preprocessing import OneHotEncoder # Importeer OneHotEncoder uit sklearn
-ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), [4, 5, 11])], remainder='passthrough') # Pas OneHotEncoder toe op kolommen 4, 5 en 11 (categorische variabelen) en laat de rest van de kolommen ongemoeid
+categorische_kolommen = ['Sex', 'ChestPainType', 'RestingECG', 'ExerciseAngina', 'ST_Slope']
+ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), categorische_kolommen)], remainder='passthrough')
 X = np.array(ct.fit_transform(X)) # Transformeer de input (X) met de ColumnTransformer en converteer het naar een numpy-array
 
 print(X) # Toon de input (features) na het encoderen van categorische variabelen
@@ -62,12 +64,22 @@ print(X) # Toon de input (features) na het encoderen van categorische variabelen
 # Sla de bewerkte input en de uitkomst samen op voor controle.
 # OneHotEncoder verandert het aantal en de volgorde van de kolommen.
 # Vraag daarom de nieuwe kolomnamen op bij de ColumnTransformer.
-kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())+
+kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())
 bewerkte_data = pd.DataFrame(X, columns=kolomnamen, index=dataset.index)
 bewerkte_data['HeartDisease'] = y
+encoder_kolommen = [naam for naam in kolomnamen if naam.startswith('encoder__')]
+bewerkte_data[encoder_kolommen] = bewerkte_data[encoder_kolommen].astype(int)
+integer_kolommen = [
+    'remainder__Age',
+    'remainder__RestingBP',
+    'remainder__Cholesterol',
+    'remainder__FastingBS',
+    'remainder__MaxHR',
+]
+bewerkte_data[integer_kolommen] = bewerkte_data[integer_kolommen].astype(int)
 
 # Sla op naast het bronbestand. De bewerkte CSV wordt overschreven.
-bewerkte_data.to_csv(bestand.with_name('Heart_failure_bewerkt.csv'), index=False)
+bewerkte_data.to_csv(bestand.with_name('Heart_failure_cleaned_and_preprocessed.csv'), index=False)
 
 
 
