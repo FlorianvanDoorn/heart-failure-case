@@ -78,8 +78,14 @@ integer_kolommen = [
 ]
 bewerkte_data[integer_kolommen] = bewerkte_data[integer_kolommen].astype(int)
 
-# Sla op naast het bronbestand. De bewerkte CSV wordt overschreven.
-bewerkte_data.to_csv(bestand.with_name('Heart_failure_cleaned_and_preprocessed.csv'), index=False)
+# Verdeel per blok van tien rijen: acht voor training en twee voor test.
+train_mask = np.arange(len(bewerkte_data)) % 10 < 8
+train_data = bewerkte_data.iloc[train_mask]
+test_data = bewerkte_data.iloc[~train_mask].drop(columns=['HeartDisease'])
+
+# Training bevat X en y; test bevat alleen X.
+train_data.to_csv(bestand.with_name('Heart_failure_train.csv'), index=False)
+test_data.to_csv(bestand.with_name('Heart_failure_test.csv'), index=False)
 
 
 
