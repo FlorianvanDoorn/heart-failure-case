@@ -4,14 +4,26 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
+from sklearn.base import clone
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 
 
+# Laat None staan tijdens modelontwikkeling. Kies pas na cross-validatie
+# "Logistische regressie" of "Lineaire SVM" voor de eindbeoordeling.
+gekozen_naam = "Lineaire SVM"
+
+# Zoek eerst relatief aan dit script, onafhankelijk van de huidige werkmap.
 mogelijke_paden = [
+    Path(__file__).resolve().parent.parent / 'data' / 'Heart faillure prediction data.csv',
     Path('../data/Heart faillure prediction data.csv'),
     Path('heart-failure/data/Heart faillure prediction data.csv'),
     Path('data/Heart faillure prediction data.csv'),
@@ -55,47 +67,111 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# Bereken de cholesterolmediaan uitsluitend met niet-nulle waarden uit de trainingsset.
-# Pas dezelfde mediaan toe op de testset, zonder opnieuw te fitten.
-imputer = SimpleImputer(missing_values=0, strategy="median")
-X_train["Cholesterol"] = imputer.fit_transform(X_train[["Cholesterol"]]).ravel()
-X_test["Cholesterol"] = imputer.transform(X_test[["Cholesterol"]]).ravel()
-
-# Selecteer categorieën op naam, zodat gewijzigde kolomposities geen probleem zijn.
+# Selecteer categorieën op naam voor one-hot encoding binnen elke fold.
 categorische_kolommen = [
     "Sex", "ChestPainType", "FastingBS",
     "RestingECG", "ExerciseAngina", "ST_Slope"
 ]
 
-# Encodeer categorieën en geef meetwaarden ongewijzigd door, zonder naamvoorvoegsels.
-ct = ColumnTransformer(
-    transformers=[("encoder", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), categorische_kolommen)],
-    remainder="passthrough",
-    verbose_feature_names_out=False,
+# Behandel cholesterol apart: alleen daar geldt nul als ontbrekende meting.
+overige_numerieke_kolommen = ["Age", "RestingBP", "MaxHR", "Oldpeak"]
+cholesterol_pipeline = Pipeline([
+    ("imputatie", SimpleImputer(missing_values=0, strategy="median")),
+    ("schaling", StandardScaler()),
+])
+
+# Definieer de voorbewerking zonder al iets op de volledige trainingsset te leren.
+voorbewerking = ColumnTransformer(
+    transformers=[
+        ("cholesterol", cholesterol_pipeline, ["Cholesterol"]),
+        ("numeriek", StandardScaler(), overige_numerieke_kolommen),
+        ("categorie", OneHotEncoder(sparse_output=False, handle_unknown="ignore"),
+         categorische_kolommen),
+    ],
+    remainder="drop",
 )
-# Leer de categorieën op de trainingsset; gebruik dezelfde encoder voor de testset.
-# Een nieuwe categorie in de testset levert nullen in de bijbehorende encoderkolommen op.
-train_waarden = ct.fit_transform(X_train)
-test_waarden = ct.transform(X_test)
 
-# Behoud de index zodat kenmerken en HeartDisease bij het samenvoegen correct uitlijnen.
-kolomnamen = ct.get_feature_names_out()
-X_train = pd.DataFrame(train_waarden, columns=kolomnamen, index=X_train.index)
-X_test = pd.DataFrame(test_waarden, columns=kolomnamen, index=X_test.index)
+# Geef elk model een onafhankelijke, nog niet getrainde voorbewerking.
+pipelines = {
+    "Logistische regressie": Pipeline([
+        ("voorbewerking", clone(voorbewerking)),
+        ("model", LogisticRegression(max_iter=2000)),
+    ]),
+    "Lineaire SVM": Pipeline([
+        ("voorbewerking", clone(voorbewerking)),
+        ("model", LinearSVC(max_iter=10000, random_state=42)),
+    ]),
+}
 
-# Exporteer de modelkenmerken met de bijbehorende uitkomst HeartDisease.
-# Gebruik bij modeltraining X_train en y_train, niet de volledige exporttabel.
-train_data = pd.concat([X_train, y_train], axis=1)
-test_data = pd.concat([X_test, y_test], axis=1)
-train_data.to_csv(bestand.with_name('Heart_failure_train.csv'), index=False)
-test_data.to_csv(bestand.with_name('Heart_failure_test.csv'), index=False)
+# Controleer een eventuele modelkeuze voordat de berekeningen starten.
+if gekozen_naam is not None and gekozen_naam not in pipelines:
+    raise ValueError(f'Kies None of een van deze modelnamen: {list(pipelines)}')
+
+# Leg dezelfde vijf gestratificeerde verdelingen vast voor beide modellen.
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+folds = list(cv.split(X_train, y_train))
+
+# Precision, recall en F1 betreffen de positieve klasse HeartDisease = 1.
+# ROC-AUC gebruikt modelscores en vereist daarom geen SVM-kanskalibratie.
+metrics = {
+    "accuracy": "accuracy",
+    "precision": "precision",
+    "recall": "recall",
+    "f1": "f1",
+    "roc_auc": "roc_auc",
+}
+scores_per_model = {}
+samenvatting = []
+
+# Train per fold de volledige pipeline opnieuw, uitsluitend op de trainingsfolds.
+for naam, pipeline in pipelines.items():
+    scores = cross_validate(
+        pipeline, X_train, y_train, cv=folds, scoring=metrics,
+        error_score="raise",
+    )
+    scores_per_model[naam] = scores
+
+    # De sleutels test_* betreffen hier validatiefolds, niet de aparte testset.
+    rij = {"Model": naam}
+    for metric in metrics:
+        fold_scores = scores[f"test_{metric}"]
+        rij[f"{metric}_gemiddeld"] = fold_scores.mean()
+        rij[f"{metric}_std"] = fold_scores.std()
+    samenvatting.append(rij)
+
+# Toon alle kolommen van de vergelijking zonder de eindtestset te gebruiken.
+resultaten = pd.DataFrame(samenvatting).set_index("Model")
+print('\nCross-validatie: gemiddelden en spreiding over vijf folds')
+print(resultaten.round(3).to_string())
+
+# Exporteer geen vooraf getransformeerde train/test-CSV's: de pipeline heeft
+# oorspronkelijke kenmerken nodig. Bestaande CSV-exports worden niet vernieuwd.
+
+# Beoordeel de testset alleen wanneer vooraf expliciet een model is gekozen.
+if gekozen_naam is None:
+    print('\nTestset niet beoordeeld. Stel gekozen_naam pas in na je modelkeuze.')
+else:
+    # Leer de gekozen pipeline opnieuw op de volledige trainingsset.
+    definitief_model = clone(pipelines[gekozen_naam])
+    definitief_model.fit(X_train, y_train)
+
+    # Gebruik voor de testset uitsluitend de zojuist geleerde voorbewerking.
+    y_voorspeld = definitief_model.predict(X_test)
+    print(f'\nEindbeoordeling: {gekozen_naam}')
+    print(classification_report(
+        y_test, y_voorspeld, labels=[0, 1],
+        target_names=["Geen hartaandoening", "Hartaandoening"],
+        zero_division=0,
+    ))
+
+    # Rijen tonen werkelijke klassen; kolommen tonen voorspelde klassen.
+    matrix = confusion_matrix(y_test, y_voorspeld, labels=[0, 1])
+    print(pd.DataFrame(
+        matrix,
+        index=["Werkelijk 0", "Werkelijk 1"],
+        columns=["Voorspeld 0", "Voorspeld 1"],
+    ))
 
 
-# Toon de setgroottes en klasseverdeling om de splitsing te controleren.
-print(f'Trainingsset: {len(X_train)} rijen; testset: {len(X_test)} rijen.')
-print(pd.DataFrame({
-    'Training': y_train.value_counts().sort_index(),
-    'Test': y_test.value_counts().sort_index(),
-}))
 
 # Dit is de subbranch van Florian
