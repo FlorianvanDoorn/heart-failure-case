@@ -21,12 +21,27 @@ if bestand is None:
 
 # Lees de CSV-data in
 dataset = pd.read_csv(bestand)
-dataset = dataset.drop(columns=['CaseNumber', 'LastName', 'PostCode'])
+
+# Verwijder de kolommen die niet nodig zijn voor de analyse.
+aantal_kolommen_voor = len(dataset.columns)
+dataset = dataset.drop(columns=['CaseNumber', 'LastName', 'PostCode']) # verwijder de case number, last name en postcode kolommen
+print("Verwijderde kolommen die niet nodig zijn voor de analyse:", aantal_kolommen_voor - len(dataset.columns))
+
+# Converteer de HeartDisease-kolom naar 0 en 1
+labels = dataset['HeartDisease'].astype(str).str.strip().str.lower() # verwijder spaties en zet de waarden om naar kleine letters
+aantal_gecorrigeerde_labels = int((labels == 'yes').sum())
+dataset['HeartDisease'] = pd.to_numeric(
+    labels.replace({'yes': '1'}),
+    errors='raise',
+).astype(int)
+if not dataset['HeartDisease'].isin([0, 1]).all():
+    raise ValueError('HeartDisease moet alleen de waarden 0 of 1 bevatten.')
+print("Labels omgezet van yes naar 1:", aantal_gecorrigeerde_labels) # print het aantal labels dat is omgezet van yes naar 1
 
 # Verwijder rijen met ontbrekende waarden
 aantal_voor = len(dataset) # Tel het aantal rijen in de dataset voordat we rijen verwijderen
 dataset = dataset.dropna(subset=["Age"]) # Verwijder rijen waar de Age-kolom ontbreekt 
-print("Verwijderde rijen:", aantal_voor - len(dataset)) # Print het aantal verwijderde rijen
+print("Verwijderde rijen met ontbrekende leeftijd:", aantal_voor - len(dataset)) # Print het aantal verwijderde rijen
 
 # Verwijder rijen waarin de bloeddruk 0 of lager is, omdat dit niet realistisch is
 aantal_voor = len(dataset)
@@ -45,6 +60,7 @@ test_records = dataset.iloc[~train_mask].copy()
 X_train = train_records.drop(columns=['HeartDisease'])
 y_train = train_records['HeartDisease'].to_numpy()
 X_test = test_records.drop(columns=['HeartDisease'])
+y_test = test_records['HeartDisease'].to_numpy()
 
 # Bereken de cholesterolmediaan apart voor training en test.
 from sklearn.impute import SimpleImputer
@@ -71,10 +87,13 @@ kolomnamen = ct.get_feature_names_out(X_train.columns.tolist())
 train_data = pd.DataFrame(X_train_encoded, columns=kolomnamen, index=X_train.index)
 train_data['HeartDisease'] = y_train
 test_data = pd.DataFrame(X_test_encoded, columns=kolomnamen, index=X_test.index)
+test_data_met_uitkomst = test_data.copy()
+test_data_met_uitkomst['HeartDisease'] = y_test
 
 encoder_kolommen = [naam for naam in kolomnamen if naam.startswith('encoder__')]
 train_data[encoder_kolommen] = train_data[encoder_kolommen].astype(int)
 test_data[encoder_kolommen] = test_data[encoder_kolommen].astype(int)
+test_data_met_uitkomst[encoder_kolommen] = test_data_met_uitkomst[encoder_kolommen].astype(int)
 integer_kolommen = [
     'remainder__Age',
     'remainder__RestingBP',
@@ -84,10 +103,11 @@ integer_kolommen = [
 ]
 train_data[integer_kolommen] = train_data[integer_kolommen].round().astype(int)
 test_data[integer_kolommen] = test_data[integer_kolommen].round().astype(int)
+test_data_met_uitkomst[integer_kolommen] = test_data_met_uitkomst[integer_kolommen].round().astype(int)
 
 # Training bevat X en y; test bevat alleen X.
 train_data.to_csv(bestand.with_name('Heart_failure_train.csv'), index=False)
 test_data.to_csv(bestand.with_name('Heart_failure_test.csv'), index=False)
-
+test_data_met_uitkomst.to_csv(bestand.with_name('Heart_failure_test_control.csv'), index=False)
 
 
