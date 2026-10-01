@@ -19,7 +19,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 # Laat None staan tijdens modelontwikkeling. Kies pas na cross-validatie
 # "Logistische regressie" of "Lineaire SVM" voor de eindbeoordeling.
-gekozen_naam = "Lineaire SVM"
+gekozen_naam = None
 
 # Zoek eerst relatief aan dit script, onafhankelijk van de huidige werkmap.
 mogelijke_paden = [
@@ -139,10 +139,36 @@ for naam, pipeline in pipelines.items():
         rij[f"{metric}_std"] = fold_scores.std()
     samenvatting.append(rij)
 
-# Toon alle kolommen van de vergelijking zonder de eindtestset te gebruiken.
+# Bewaar numerieke resultaten voor verdere analyse; formatteer alleen de uitvoer.
 resultaten = pd.DataFrame(samenvatting).set_index("Model")
-print('\nCross-validatie: gemiddelden en spreiding over vijf folds')
-print(resultaten.round(3).to_string())
+
+# Zet metrics onder elkaar, zodat de vergelijking in een gewone terminal past.
+# Iedere cel bevat het gemiddelde en de standaardafwijking met drie decimalen.
+metric_labels = {
+    "accuracy": "Accuracy",
+    "precision": "Precision",
+    "recall": "Recall",
+    "f1": "F1",
+    "roc_auc": "ROC-AUC",
+}
+label_breedte = max(len(label) for label in metric_labels.values())
+model_breedte = max(17, max(len(naam) for naam in resultaten.index))
+kop = f'{"Metric":<{label_breedte}} | ' + ' | '.join(
+    f'{naam:>{model_breedte}}' for naam in resultaten.index
+)
+print('\nCross-validatie (5 folds)')
+print('Scores: gemiddelde +/- standaardafwijking (schaal 0-1)\n')
+print(kop)
+print('-' * len(kop))
+for metric, label in metric_labels.items():
+    # Gebruik vaste kolombreedtes en rechts uitgelijnde getallen.
+    cellen = []
+    for naam in resultaten.index:
+        gemiddelde = resultaten.loc[naam, f'{metric}_gemiddeld']
+        spreiding = resultaten.loc[naam, f'{metric}_std']
+        cel = f'{gemiddelde:.3f} +/- {spreiding:.3f}'
+        cellen.append(f'{cel:>{model_breedte}}')
+    print(f'{label:<{label_breedte}} | ' + ' | '.join(cellen))
 
 # Exporteer geen vooraf getransformeerde train/test-CSV's: de pipeline heeft
 # oorspronkelijke kenmerken nodig. Bestaande CSV-exports worden niet vernieuwd.
@@ -161,16 +187,19 @@ else:
     print(classification_report(
         y_test, y_voorspeld, labels=[0, 1],
         target_names=["Geen hartaandoening", "Hartaandoening"],
+        digits=3,
         zero_division=0,
     ))
 
     # Rijen tonen werkelijke klassen; kolommen tonen voorspelde klassen.
     matrix = confusion_matrix(y_test, y_voorspeld, labels=[0, 1])
+    # Druk de volledige matrix af zonder afkorting of automatische regelomloop.
+    print('Confusion matrix (aantallen; 0 = geen aandoening, 1 = aandoening)')
     print(pd.DataFrame(
         matrix,
         index=["Werkelijk 0", "Werkelijk 1"],
         columns=["Voorspeld 0", "Voorspeld 1"],
-    ))
+    ).to_string())
 
 
 
