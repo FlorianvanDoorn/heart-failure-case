@@ -37,38 +37,44 @@ aantal_voor = len(dataset)
 dataset = dataset[dataset["Sex"].isin(["M", "F"])] # Behoud rijen waarin Sex "M" of "F" is
 print("Verwijderde rijen met ongeldige geslachtswaarde:", aantal_voor - len(dataset))
 
-# Splits de dataset in input (X) en output (y)
-X = dataset.iloc[:, :-1].copy() # Alle kolommen behalve de laatste (HeartDisease) Dit is de input (features)
-y = dataset.iloc[:, -1].values # Alleen de laatste kolom (HeartDisease) Dit is de output (target)
+# Verdeel per blok van tien rijen voordat imputers of encoders worden gefit.
+train_mask = np.arange(len(dataset)) % 10 < 8
+train_records = dataset.iloc[train_mask].copy()
+test_records = dataset.iloc[~train_mask].copy()
 
-# Toon de input en output
-print(X) # Toon de input (features)
-print(y) # Toon de output (target)
+X_train = train_records.drop(columns=['HeartDisease'])
+y_train = train_records['HeartDisease'].to_numpy()
+X_test = test_records.drop(columns=['HeartDisease'])
 
-# Imputeer nulwaarden in kolom 7 met de gemiddelde waarde van die kolom
-from sklearn.impute import SimpleImputer # Importeer SimpleImputer uit sklearn
-imputer = SimpleImputer(missing_values=0, strategy='median') # Vervang nulwaarden door het kolommediaan
-X[['Cholesterol']] = imputer.fit_transform(X[['Cholesterol']]) # Vervang nullen in Cholesterol door de mediaan
+# Bereken de cholesterolmediaan apart voor training en test.
+from sklearn.impute import SimpleImputer
+train_imputer = SimpleImputer(missing_values=0, strategy='median')
+test_imputer = SimpleImputer(missing_values=0, strategy='median')
+X_train[['Cholesterol']] = train_imputer.fit_transform(X_train[['Cholesterol']])
+X_test[['Cholesterol']] = test_imputer.fit_transform(X_test[['Cholesterol']])
+print('Mediaan cholesterol training:', train_imputer.statistics_[0])
+print('Mediaan cholesterol test:', test_imputer.statistics_[0])
 
-
-
-# Encodeer categorische variabelen met OneHotEncoder
-from sklearn.compose import ColumnTransformer # Importeer ColumnTransformer uit sklearn
-from sklearn.preprocessing import OneHotEncoder # Importeer OneHotEncoder uit sklearn
+# Fit de encoder alleen op training en gebruik dezelfde kolommen voor test.
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
 categorische_kolommen = ['Sex', 'ChestPainType', 'RestingECG', 'ExerciseAngina', 'ST_Slope']
-ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), categorische_kolommen)], remainder='passthrough')
-X = np.array(ct.fit_transform(X)) # Transformeer de input (X) met de ColumnTransformer en converteer het naar een numpy-array
+ct = ColumnTransformer(
+    transformers=[('encoder', OneHotEncoder(handle_unknown='ignore'), categorische_kolommen)],
+    remainder='passthrough',
+    sparse_threshold=0,
+)
+X_train_encoded = np.asarray(ct.fit_transform(X_train))
+X_test_encoded = np.asarray(ct.transform(X_test))
+kolomnamen = ct.get_feature_names_out(X_train.columns.tolist())
 
-print(X) # Toon de input (features) na het encoderen van categorische variabelen
+train_data = pd.DataFrame(X_train_encoded, columns=kolomnamen, index=X_train.index)
+train_data['HeartDisease'] = y_train
+test_data = pd.DataFrame(X_test_encoded, columns=kolomnamen, index=X_test.index)
 
-# Sla de bewerkte input en de uitkomst samen op voor controle.
-# OneHotEncoder verandert het aantal en de volgorde van de kolommen.
-# Vraag daarom de nieuwe kolomnamen op bij de ColumnTransformer.
-kolomnamen = ct.get_feature_names_out(dataset.columns[:-1].tolist())
-bewerkte_data = pd.DataFrame(X, columns=kolomnamen, index=dataset.index)
-bewerkte_data['HeartDisease'] = y
 encoder_kolommen = [naam for naam in kolomnamen if naam.startswith('encoder__')]
-bewerkte_data[encoder_kolommen] = bewerkte_data[encoder_kolommen].astype(int)
+train_data[encoder_kolommen] = train_data[encoder_kolommen].astype(int)
+test_data[encoder_kolommen] = test_data[encoder_kolommen].astype(int)
 integer_kolommen = [
     'remainder__Age',
     'remainder__RestingBP',
@@ -76,12 +82,8 @@ integer_kolommen = [
     'remainder__FastingBS',
     'remainder__MaxHR',
 ]
-bewerkte_data[integer_kolommen] = bewerkte_data[integer_kolommen].astype(int)
-
-# Verdeel per blok van tien rijen: acht voor training en twee voor test.
-train_mask = np.arange(len(bewerkte_data)) % 10 < 8
-train_data = bewerkte_data.iloc[train_mask]
-test_data = bewerkte_data.iloc[~train_mask].drop(columns=['HeartDisease'])
+train_data[integer_kolommen] = train_data[integer_kolommen].round().astype(int)
+test_data[integer_kolommen] = test_data[integer_kolommen].round().astype(int)
 
 # Training bevat X en y; test bevat alleen X.
 train_data.to_csv(bestand.with_name('Heart_failure_train.csv'), index=False)
