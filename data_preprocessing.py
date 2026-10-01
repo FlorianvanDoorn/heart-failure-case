@@ -65,11 +65,10 @@ y_test = test_records['HeartDisease'].to_numpy()
 # Bereken de cholesterolmediaan apart voor training en test.
 from sklearn.impute import SimpleImputer
 train_imputer = SimpleImputer(missing_values=0, strategy='median')
-test_imputer = SimpleImputer(missing_values=0, strategy='median')
 X_train[['Cholesterol']] = train_imputer.fit_transform(X_train[['Cholesterol']])
-X_test[['Cholesterol']] = test_imputer.fit_transform(X_test[['Cholesterol']])
+X_test[['Cholesterol']] = train_imputer.transform(X_test[['Cholesterol']]) # Gebruik dezelfde mediaan als voor training, maar pas toe op test.
 print('Mediaan cholesterol training:', train_imputer.statistics_[0])
-print('Mediaan cholesterol test:', test_imputer.statistics_[0])
+print('Mediaan cholesterol test:', train_imputer.statistics_[0])
 
 # Fit de encoder alleen op training en gebruik dezelfde kolommen voor test.
 from sklearn.compose import ColumnTransformer
