@@ -4,6 +4,7 @@ import joblib
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -12,6 +13,7 @@ TEST_PATH = PROJECT_DIR / 'Heart_failure_test.csv'
 TEST_CONTROL_PATH = PROJECT_DIR / 'Heart_failure_test_control.csv'
 MODEL_PATH = PROJECT_DIR / 'random_forest_model.joblib'
 PREDICTIONS_PATH = PROJECT_DIR / 'RandomForest_test_with_predictions.csv'
+TUNING_RESULTS_PATH = PROJECT_DIR / 'RandomForest_tuning_results.csv'
 
 
 def main() -> None:
@@ -34,8 +36,37 @@ def main() -> None:
     ):
         raise ValueError('De testset en het testcontrolebestand bevatten niet dezelfde rijen.')
 
-    # Combineer 300 beslisbomen; parallel trainen gebruikt alle beschikbare processorkernen.
-    model = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
+    # Zoek instellingen met cross-validatie op alleen de trainingsdata.
+    parameter_keuzes = {
+        'n_estimators': [100, 200, 300, 500],
+        'max_depth': [None, 5, 10, 15, 20],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
+        'max_features': ['sqrt', 'log2', 0.5],
+        'class_weight': [None, 'balanced'],
+    }
+    cross_validatie = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    tuner = RandomizedSearchCV(
+        estimator=RandomForestClassifier(random_state=42, n_jobs=1),
+        param_distributions=parameter_keuzes,
+        n_iter=24,
+        scoring='accuracy',
+        cv=cross_validatie,
+        random_state=42,
+        n_jobs=-1,
+        refit=False,
+    )
+    tuner.fit(X, y)
+    print(f'Beste gemiddelde CV-accuracy: {tuner.best_score_:.3f}')
+    print('Beste hyperparameters:', tuner.best_params_)
+
+    pd.DataFrame(tuner.cv_results_).sort_values('rank_test_score').to_csv(
+        TUNING_RESULTS_PATH,
+        index=False,
+    )
+
+    # Fit het uiteindelijke bos met de beste instellingen op alle trainingsdata.
+    model = RandomForestClassifier(**tuner.best_params_, random_state=42, n_jobs=-1)
     model.fit(X, y)
 
     # Vergelijk de voorspellingen met de echte uitkomsten uit het controlebestand.
@@ -59,6 +90,7 @@ def main() -> None:
     joblib.dump(model, MODEL_PATH)
     print(f'Voorspellingen opgeslagen in: {PREDICTIONS_PATH.name}')
     print(f'Model opgeslagen in: {MODEL_PATH.name}')
+    print(f'Tuningresultaten opgeslagen in: {TUNING_RESULTS_PATH.name}')
 
 
 if __name__ == '__main__':
